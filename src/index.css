@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-blue: #0A2647;
+  --secondary-blue: #144272;
+  --accent-blue: #205295;
+  --safety-orange: #F57C00;
+  --bg-light: #F0F2F5;
+  --status-green: #52C41A;
+  --status-red: #FF4D4F;
+  --status-yellow: #FAAD14;
+  font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 1366px;
+  background: var(--bg-light);
+}
+
+.ant-layout-sider {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+}
+
+.site-layout-content {
+  min-height: calc(100vh - 64px);
+}
+
+.ant-card {
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.3s;
+}
+
+.ant-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.ant-table-wrapper {
+  border-radius: 8px;
+}
+
+.mono-font {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}
+
+.status-normal { color: var(--status-green); }
+.status-warning { color: var(--status-yellow); }
+.status-alarm { color: var(--status-red); }
+
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+@keyframes pulse-alarm {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.pulse-warning { animation: pulse-warning 2s ease-in-out infinite; }
+.pulse-alarm { animation: pulse-alarm 1s ease-in-out infinite; }
+
+.row-non-compliance {
+  background: #fff2f0 !important;
+}
+
+.row-non-compliance:hover > td {
+  background: #ffebe8 !important;
+}
+
+.ant-menu-item-selected {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px;
+  margin: 4px 8px;
+}
+
+.ant-menu-item {
+  border-radius: 6px;
+  margin: 4px 8px;
+}
+
+.ant-statistic-content-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.ant-tag {
+  border-radius: 4px;
+}
+
+.ant-btn {
+  border-radius: 6px;
+}
+
+.ant-modal-header {
+  border-radius: 10px 10px 0 0;
+}
+
+.ant-modal-content {
+  border-radius: 10px;
+}
+
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+canvas {
+  display: block;
+}
