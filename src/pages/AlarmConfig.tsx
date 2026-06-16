@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, Row, Col, Form, InputNumber, Switch, Button, Space, Alert, Tag, message, Popconfirm } from 'antd';
-import { ReloadOutlined, SaveOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { ReloadOutlined, SaveOutlined, InfoCircleOutlined, UndoOutlined } from '@ant-design/icons';
 import { useAlarmConfigStore } from '@/store/useAlarmConfigStore';
 import { DEFAULT_ALARM_CONFIG } from '@/types';
 import type { AlarmParamConfig, AlarmParamKey } from '@/types';
+import { useShallow } from 'zustand/react/shallow';
 
 interface EditableConfig extends AlarmParamConfig {
   _warningError?: string;
@@ -11,21 +12,32 @@ interface EditableConfig extends AlarmParamConfig {
 }
 
 export default function AlarmConfig() {
-  const store = useAlarmConfigStore();
-  const [localConfigs, setLocalConfigs] = useState<EditableConfig[]>(
-    store.configs.map(c => ({ ...c }))
-  );
+  const savedConfigs = useAlarmConfigStore(useShallow(state => state.configs));
+  const resetToDefault = useAlarmConfigStore(state => state.resetToDefault);
+  const updateConfig = useAlarmConfigStore(state => state.updateConfig);
   const [form] = Form.useForm();
+
+  const [localConfigs, setLocalConfigs] = useState<EditableConfig[]>(
+    savedConfigs.map(c => ({ ...c }))
+  );
+
+  useEffect(() => {
+    setLocalConfigs(savedConfigs.map(c => ({ ...c })));
+  }, [savedConfigs]);
 
   const warningEnabledCount = localConfigs.filter(c => c.warningEnabled).length;
   const alarmEnabledCount = localConfigs.filter(c => c.alarmEnabled).length;
-  const modifiedCount = localConfigs.filter((lc, i) => {
-    const orig = store.configs[i];
-    return lc.warningThreshold !== orig.warningThreshold
-      || lc.alarmThreshold !== orig.alarmThreshold
-      || lc.warningEnabled !== orig.warningEnabled
-      || lc.alarmEnabled !== orig.alarmEnabled;
-  }).length;
+
+  const modifiedCount = useMemo(() => {
+    return localConfigs.filter((lc, i) => {
+      const orig = savedConfigs[i];
+      if (!orig) return true;
+      return lc.warningThreshold !== orig.warningThreshold
+        || lc.alarmThreshold !== orig.alarmThreshold
+        || lc.warningEnabled !== orig.warningEnabled
+        || lc.alarmEnabled !== orig.alarmEnabled;
+    }).length;
+  }, [localConfigs, savedConfigs]);
 
   const validateConfig = (cfgs: EditableConfig[]): boolean => {
     let hasError = false;
@@ -92,7 +104,7 @@ export default function AlarmConfig() {
       return;
     }
     localConfigs.forEach(c => {
-      store.updateConfig(c.key, {
+      updateConfig(c.key, {
         warningEnabled: c.warningEnabled,
         alarmEnabled: c.alarmEnabled,
         warningThreshold: c.warningThreshold,
@@ -102,14 +114,14 @@ export default function AlarmConfig() {
     message.success('告警阈值已保存，配置已自动生效');
   };
 
-  const handleReset = () => {
-    setLocalConfigs(DEFAULT_ALARM_CONFIG.map(c => ({ ...c })));
-    message.info('已重置为编辑前的默认值，点击"保存"才会应用');
+  const handleResetEdit = () => {
+    setLocalConfigs(savedConfigs.map(c => ({ ...c })));
+    message.info('已重置为当前保存的配置');
   };
 
   const handleResetAllToDefault = () => {
-    store.resetToDefault();
-    setLocalConfigs(store.configs.map(c => ({ ...c })));
+    resetToDefault();
+    setLocalConfigs(DEFAULT_ALARM_CONFIG.map(c => ({ ...c })));
     message.success('已恢复到系统默认阈值');
   };
 
@@ -138,7 +150,7 @@ export default function AlarmConfig() {
             <Space>
               <Tag color="gold">预警开启: {warningEnabledCount}/5</Tag>
               <Tag color="red">报警开启: {alarmEnabledCount}/5</Tag>
-              {modifiedCount > 0 && <Tag color="processing">已修改: {modifiedCount} 项</Tag>}
+              {modifiedCount > 0 && <Tag color="processing">未保存: {modifiedCount} 项</Tag>}
             </Space>
           </div>
         }
@@ -153,8 +165,10 @@ export default function AlarmConfig() {
             >
               <Button icon={<ReloadOutlined />}>恢复默认</Button>
             </Popconfirm>
-            <Button onClick={handleReset}>重置本次编辑</Button>
-            <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
+            <Button icon={<UndoOutlined />} onClick={handleResetEdit} disabled={modifiedCount === 0}>
+              重置编辑
+            </Button>
+            <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} disabled={modifiedCount === 0}>
               保存配置
             </Button>
           </Space>
@@ -255,7 +269,7 @@ export default function AlarmConfig() {
                   <div style={{ marginTop: 12, padding: '8px 12px', background: '#f5f5f5', borderRadius: 6, fontSize: 12, color: '#666' }}>
                     {config.warningEnabled || config.alarmEnabled ? (
                       <>
-                        {config.direction === 'above' ? '当' : '当'}
+                        当
                         <strong style={{ color: '#333' }}>{config.label}</strong>
                         {config.warningEnabled && (
                           <>
