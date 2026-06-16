@@ -79,15 +79,40 @@ export default function Comparison() {
   const { periodA, periodB } = useMemo(() => generateComparisonData(preset), [preset]);
 
   const trendOption = useMemo(() => {
-    const times = periodA.airVolumeTrend.map(d => d.time);
+    const labels = periodA.airVolumeTrend.map(d => d.time);
     const dataA = periodA.airVolumeTrend.map(d => d[activeTrendParam]);
     const dataB = periodB.airVolumeTrend.map(d => d[activeTrendParam]);
     const param = TREND_PARAMS.find(p => p.key === activeTrendParam)!;
     return {
-      tooltip: { trigger: 'axis' },
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any[]) => {
+          const relTime = params[0]?.axisValue ?? '';
+          let html = `<div style="font-weight:600;margin-bottom:4px">相对时间：${relTime}</div>`;
+          params.forEach((p: any) => {
+            html += `<div>${p.marker} ${p.seriesName}：${p.value} ${param.unit}</div>`;
+          });
+          html += `<div style="color:#999;font-size:11px;margin-top:4px">${periodA.periodLabel}: ${periodA.startDate} ~ ${periodA.endDate}</div>`;
+          html += `<div style="color:#999;font-size:11px">${periodB.periodLabel}: ${periodB.startDate} ~ ${periodB.endDate}</div>`;
+          return html;
+        },
+      },
       legend: { data: [`${periodA.periodLabel}`, `${periodB.periodLabel}`], top: 5 },
-      grid: { left: 50, right: 20, top: 45, bottom: 30 },
-      xAxis: { type: 'category', data: times, boundaryGap: false, axisLabel: { fontSize: 10 } },
+      grid: { left: 50, right: 20, top: 45, bottom: 40 },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        boundaryGap: false,
+        axisLabel: {
+          fontSize: 10,
+          interval: Math.max(Math.floor(labels.length / 8) - 1, 0),
+          rotate: labels.length > 15 ? 30 : 0,
+        },
+        name: '相对时间',
+        nameLocation: 'middle',
+        nameGap: 28,
+        nameTextStyle: { fontSize: 11, color: '#999' },
+      },
       yAxis: { type: 'value', name: param.unit, nameTextStyle: { fontSize: 11 } },
       series: [
         {
@@ -276,7 +301,14 @@ export default function Comparison() {
       </Card>
 
       <Card
-        title={<span style={{ fontWeight: 600 }}>📊 风量参数趋势对比</span>}
+        title={
+          <span style={{ fontWeight: 600 }}>
+            📊 风量参数趋势对比
+            <span style={{ fontWeight: 400, fontSize: 12, color: '#999', marginLeft: 8 }}>
+              （归一化相对时间轴，同位置对齐两期数据）
+            </span>
+          </span>
+        }
         style={{ marginBottom: 16, borderRadius: 10 }}
         extra={
           <Space.Compact>

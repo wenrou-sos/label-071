@@ -21,18 +21,26 @@ function rand(min: number, max: number): number {
 function generateTrendPoints(days: number, pointsPerDay: number, baseAirVolume: number): ComparisonAirData['airVolumeTrend'] {
   const total = days * pointsPerDay;
   const result: ComparisonAirData['airVolumeTrend'] = [];
-  const start = dayjs().subtract(days - 1, 'day').startOf('day');
-  const interval = 24 / pointsPerDay;
 
   for (let i = 0; i < total; i++) {
-    const t = start.add(i * interval, 'hour');
+    let label: string;
+    if (days <= 1) {
+      const hour = i % 24;
+      label = `${String(hour).padStart(2, '0')}:00`;
+    } else if (pointsPerDay <= 2) {
+      label = `第${i + 1}天`;
+    } else {
+      const dayIdx = Math.floor(i / pointsPerDay) + 1;
+      const slot = i % pointsPerDay + 1;
+      label = `第${dayIdx}天-${slot}`;
+    }
     const airVolume = baseAirVolume + rand(-8, 8);
     const airPressure = 2750 + rand(-150, 150);
     const bearingTemp = 55 + rand(-10, 18);
     const vibration = 2.3 + rand(-0.5, 1.2);
     const motorCurrent = 180 + rand(-20, 30);
     result.push({
-      time: t.format(days <= 1 ? 'HH:mm' : 'MM-DD HH:mm'),
+      time: label,
       airVolume,
       airPressure,
       bearingTemp,
