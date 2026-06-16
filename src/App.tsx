@@ -7,6 +7,7 @@ import VentilationMap from '@/pages/VentilationMap';
 import FanMonitor from '@/pages/FanMonitor';
 import MonthlyReport from '@/pages/MonthlyReport';
 import OperationRecords from '@/pages/OperationRecords';
+import Comparison from '@/pages/Comparison';
 
 const theme = {
   token: {
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/fan-monitor" element={<FanMonitor />} />
             <Route path="/monthly-report" element={<MonthlyReport />} />
             <Route path="/operation-records" element={<OperationRecords />} />
+            <Route path="/comparison" element={<Comparison />} />
           </Routes>
         </AppLayout>
       </Router>

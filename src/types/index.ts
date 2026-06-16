@@ -96,3 +96,28 @@ export const STRUCTURE_LABELS: Record<StructureType, string> = {
   air_wall: '风墙',
   air_bridge: '风桥',
 };
+
+export interface ComparisonAlarmStats {
+  warningCount: number;
+  alarmCount: number;
+  totalCount: number;
+  avgResponseTimeMin: number;
+  handledRate: number;
+}
+
+export interface ComparisonAirData {
+  periodLabel: string;
+  startDate: string;
+  endDate: string;
+  airVolumeTrend: { time: string; airVolume: number; airPressure: number; bearingTemp: number; vibration: number; motorCurrent: number }[];
+  alarmStats: ComparisonAlarmStats;
+  complianceRate: number;
+  totalLocations: number;
+  compliantLocations: number;
+  avgEffectiveAirRate: number;
+  avgFanEfficiency: number;
+  locationComparison: { name: string; type: AirLocation['type']; actualAirVolume: number; requiredAirVolume: number }[];
+}
+
+export type PresetPeriod = 'this_month_vs_last' | 'this_week_vs_last' | 'today_vs_yesterday' | 'custom';
+

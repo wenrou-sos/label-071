@@ -6,6 +6,7 @@ import {
   DashboardOutlined,
   FileTextOutlined,
   SwapOutlined,
+  BarChartOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   BellOutlined,
@@ -36,6 +37,11 @@ const menuItems = [
     key: '/monthly-report',
     icon: <FileTextOutlined />,
     label: '通风月报',
+  },
+  {
+    key: '/comparison',
+    icon: <BarChartOutlined />,
+    label: '数据对比',
   },
   {
     key: '/operation-records',
