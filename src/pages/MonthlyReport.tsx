@@ -1,14 +1,12 @@
 import { useState, useMemo, useRef } from 'react';
-import { Card, Select, Button, Row, Col, Statistic, Table, Tag, Progress, message, Descriptions, Divider } from 'antd';
+import { Card, Select, Button, Row, Col, Statistic, Table, Tag, Progress, message, Descriptions, Divider, Spin } from 'antd';
 import { FilePdfOutlined, SyncOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { generateMonthlyReports } from '@/mock/reportData';
 import type { MonthlyReport, AirLocation } from '@/types';
 import dayjs from 'dayjs';
-
-const reports = generateMonthlyReports();
+import { useReportStore } from '@/store/useReportStore';
 
 const TYPE_TAG_COLOR: Record<AirLocation['type'], string> = {
   采煤工作面: 'blue',
@@ -29,13 +27,27 @@ function getRateColor(rate: number) {
 }
 
 export default function MonthlyReport() {
+  const { reports, regenerateReports } = useReportStore();
   const [selectedMonth, setSelectedMonth] = useState(reports[reports.length - 1].month);
+  const [generating, setGenerating] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const selectedReport: MonthlyReport | undefined = useMemo(
     () => reports.find((r) => r.month === selectedMonth),
-    [selectedMonth],
+    [reports, selectedMonth],
   );
+
+  const handleGenerateReport = async () => {
+    setGenerating(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      regenerateReports();
+      message.success('月报已重新生成');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const barChartOption = useMemo(() => {
     if (!selectedReport) return {};
@@ -150,17 +162,39 @@ export default function MonthlyReport() {
 
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
+    setExportingPdf(true);
     try {
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#fff' });
-      const imgData = canvas.toDataURL('image/png');
+      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#fff', windowWidth: reportRef.current.scrollWidth });
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pdfPageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidthPx = canvas.width;
+      const imgHeightPx = canvas.height;
+      const pageHeightPx = (pdfPageHeight * imgWidthPx) / pdfWidth;
+      const totalPages = Math.ceil(imgHeightPx / pageHeightPx);
+
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) pdf.addPage();
+        const sy = i * pageHeightPx;
+        const sHeight = Math.min(pageHeightPx, imgHeightPx - sy);
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = imgWidthPx;
+        pageCanvas.height = sHeight;
+        const pctx = pageCanvas.getContext('2d')!;
+        pctx.fillStyle = '#ffffff';
+        pctx.fillRect(0, 0, imgWidthPx, sHeight);
+        pctx.drawImage(canvas, 0, sy, imgWidthPx, sHeight, 0, 0, imgWidthPx, sHeight);
+        const pageImgData = pageCanvas.toDataURL('image/png');
+        const dHeight = (sHeight * pdfWidth) / imgWidthPx;
+        pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, dHeight);
+      }
       pdf.save(`通风月报_${selectedMonth}.pdf`);
       message.success('PDF导出成功');
-    } catch {
+    } catch (e) {
+      console.error(e);
       message.error('PDF导出失败');
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -182,8 +216,16 @@ export default function MonthlyReport() {
           </Col>
           <Col>
             <Row gutter={8}>
-              <Col><Button type="primary" icon={<SyncOutlined />}>生成月报</Button></Col>
-              <Col><Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>导出PDF</Button></Col>
+              <Col>
+                <Button type="primary" icon={<SyncOutlined />} loading={generating} onClick={handleGenerateReport}>
+                  生成月报
+                </Button>
+              </Col>
+              <Col>
+                <Button icon={<FilePdfOutlined />} loading={exportingPdf} onClick={handleExportPDF}>
+                  导出PDF
+                </Button>
+              </Col>
             </Row>
           </Col>
         </Row>

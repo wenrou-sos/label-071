@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Row, Col, Card, Statistic, Tag, Timeline, Progress, Badge } from 'antd';
 import {
   DashboardOutlined,
@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useFanStore } from '@/store/useFanStore';
-import { generateMonthlyReports } from '@/mock/reportData';
+import { useReportStore } from '@/store/useReportStore';
 import { tunnels, ventilationStructures } from '@/mock/tunnelData';
 import dayjs from 'dayjs';
 
@@ -37,7 +37,7 @@ function StatCard({
 
 export default function Home() {
   const fanStore = useFanStore();
-  const [reports] = useState(generateMonthlyReports);
+  const { reports } = useReportStore();
 
   useEffect(() => {
     fanStore.refreshParams();

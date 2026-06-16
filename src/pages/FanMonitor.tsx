@@ -201,7 +201,7 @@ export default function FanMonitor() {
         }
       >
         <Row gutter={8} style={{ marginBottom: 16 }}>
-          <Col><RangePicker onChange={v => setTimeRange(v as [dayjs.Dayjs, dayjs.Dayjs])} /></Col>
+          <Col><RangePicker onChange={v => setTimeRange(v ? (v as [dayjs.Dayjs, dayjs.Dayjs]) : [null, null])} /></Col>
           <Col>
             <Select style={{ width: 140 }} placeholder="告警级别" allowClear onChange={v => setLevelFilter(v ?? null)}>
               <Select.Option value="warning">🟡 黄色预警</Select.Option>
