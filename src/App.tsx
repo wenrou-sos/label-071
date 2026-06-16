@@ -9,6 +9,7 @@ import MonthlyReport from '@/pages/MonthlyReport';
 import OperationRecords from '@/pages/OperationRecords';
 import Comparison from '@/pages/Comparison';
 import Inspection from '@/pages/Inspection';
+import AlarmConfig from '@/pages/AlarmConfig';
 
 const theme = {
   token: {
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/operation-records" element={<OperationRecords />} />
             <Route path="/comparison" element={<Comparison />} />
             <Route path="/inspection" element={<Inspection />} />
+            <Route path="/alarm-config" element={<AlarmConfig />} />
           </Routes>
         </AppLayout>
       </Router>

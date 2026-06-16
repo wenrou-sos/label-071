@@ -12,6 +12,7 @@ import {
   MenuUnfoldOutlined,
   BellOutlined,
   SafetyOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -78,6 +79,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       key: '/operation-records',
       icon: <SwapOutlined />,
       label: '操作记录',
+    },
+    {
+      key: '/alarm-config',
+      icon: <SettingOutlined />,
+      label: '告警阈值配置',
     },
   ];
 

@@ -1,19 +1,12 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Card, Row, Col, Table, Modal, Button, Select, DatePicker, Tag, notification, Descriptions, Divider } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
 import { useFanStore } from '@/store/useFanStore';
-import type { AlarmRecord, FanParameters } from '@/types';
+import { useAlarmConfigStore } from '@/store/useAlarmConfigStore';
+import type { AlarmRecord, FanParameters, AlarmParamConfig, AlarmParamKey } from '@/types';
 
 const { RangePicker } = DatePicker;
-
-const PARAM_CONFIG = [
-  { key: 'airVolume', label: '风量', unit: 'm³/s', max: 120, warning: 78, alarm: 72, icon: '💨' },
-  { key: 'airPressure', label: '风压', unit: 'Pa', max: 5000, warning: 2600, alarm: 2400, icon: '📊' },
-  { key: 'motorCurrent', label: '电机电流', unit: 'A', max: 300, warning: 200, alarm: 220, icon: '⚡' },
-  { key: 'bearingTemp', label: '轴承温度', unit: '°C', max: 120, warning: 75, alarm: 85, icon: '🌡' },
-  { key: 'vibration', label: '振动', unit: 'mm/s', max: 8, warning: 3.5, alarm: 4.5, icon: '📳' },
-] as const;
 
 const STATUS_COLOR: Record<string, string> = { normal: '#52c41a', warning: '#faad14', alarm: '#ff4d4f' };
 const STATUS_BG: Record<string, string> = { normal: '#f6ffed', warning: '#fffbe6', alarm: '#fff2f0' };
@@ -24,13 +17,20 @@ const PARAM_LABEL: Record<string, string> = {
   airVolume: '风量', airPressure: '风压',
 };
 
-function gaugeOption(value: number, max: number, status: string, warning: number, alarm: number) {
+function gaugeOption(value: number, max: number, status: string, warning: number, alarm: number, direction: 'below' | 'above') {
   const color = STATUS_COLOR[status];
   const sections: [number, string][] = [];
-  if (alarm < max) sections.push([alarm / max, '#ff4d4f']);
-  if (warning < max) sections.push([warning / max, '#faad14']);
-  sections.push([1, '#52c41a']);
-  sections.reverse();
+
+  if (direction === 'above') {
+    if (alarm < max) sections.push([alarm / max, '#ff4d4f']);
+    if (warning < max) sections.push([warning / max, '#faad14']);
+    sections.push([1, '#52c41a']);
+    sections.reverse();
+  } else {
+    sections.push([1, '#52c41a']);
+    if (warning < max) sections.push([warning / max, '#faad14']);
+    if (alarm < max) sections.push([alarm / max, '#ff4d4f']);
+  }
 
   return {
     series: [{
@@ -45,16 +45,16 @@ function gaugeOption(value: number, max: number, status: string, warning: number
   };
 }
 
-function trendOption(history: FanParameters[]) {
+function trendOption(history: FanParameters[], paramConfigs: AlarmParamConfig[]) {
   const times = history.map(h => dayjs(h.timestamp).format('HH:mm:ss'));
   const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de'];
   return {
     tooltip: { trigger: 'axis' },
-    legend: { top: 30, data: PARAM_CONFIG.map(p => p.label), textStyle: { fontSize: 11 } },
+    legend: { top: 30, data: paramConfigs.map(p => p.label), textStyle: { fontSize: 11 } },
     grid: { top: 70, left: 50, right: 30, bottom: 30, containLabel: true },
     xAxis: { type: 'category' as const, data: times, boundaryGap: false, axisLabel: { fontSize: 10 } },
     yAxis: { type: 'value' as const },
-    series: PARAM_CONFIG.map((p, i) => ({
+    series: paramConfigs.map((p, i) => ({
       name: p.label, type: 'line' as const, smooth: true, color: colors[i],
       data: history.map(h => h[p.key as keyof FanParameters] as number),
       showSymbol: false,
@@ -62,7 +62,7 @@ function trendOption(history: FanParameters[]) {
   };
 }
 
-function ParamCard({ param, value, status }: { param: typeof PARAM_CONFIG[number]; value: number; status: FanParameters['status'] }) {
+function ParamCard({ param, value, status }: { param: AlarmParamConfig; value: number; status: FanParameters['status'] }) {
   const color = STATUS_COLOR[status];
   const pulse = status !== 'normal';
   return (
@@ -78,7 +78,7 @@ function ParamCard({ param, value, status }: { param: typeof PARAM_CONFIG[number
       className={pulse ? (status === 'alarm' ? 'pulse-alarm' : 'pulse-warning') : undefined}
     >
       <ReactECharts
-        option={gaugeOption(value, param.max, status, param.warning, param.alarm)}
+        option={gaugeOption(value, param.max, status, param.warningThreshold, param.alarmThreshold, param.direction)}
         style={{ height: 80 }}
         opts={{ renderer: 'svg' }}
       />
@@ -87,8 +87,8 @@ function ParamCard({ param, value, status }: { param: typeof PARAM_CONFIG[number
       </div>
       <div style={{ color: '#666', fontSize: 13, marginTop: 2 }}>{param.label}（{param.unit}）</div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 6 }}>
-        <Tag color="gold" style={{ fontSize: 10, margin: 0 }}>预警 {param.warning}</Tag>
-        <Tag color="red" style={{ fontSize: 10, margin: 0 }}>报警 {param.alarm}</Tag>
+        {param.warningEnabled && <Tag color="gold" style={{ fontSize: 10, margin: 0 }}>预警 {param.warningThreshold}</Tag>}
+        {param.alarmEnabled && <Tag color="red" style={{ fontSize: 10, margin: 0 }}>报警 {param.alarmThreshold}</Tag>}
       </div>
     </Card>
   );
@@ -96,11 +96,25 @@ function ParamCard({ param, value, status }: { param: typeof PARAM_CONFIG[number
 
 export default function FanMonitor() {
   const store = useFanStore();
+  const alarmConfigStore = useAlarmConfigStore();
   const prevStatusRef = useRef(store.currentParams.status);
   const [timeRange, setTimeRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [levelFilter, setLevelFilter] = useState<string | null>(null);
   const [appliedTimeRange, setAppliedTimeRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [appliedLevelFilter, setAppliedLevelFilter] = useState<string | null>(null);
+
+  const paramConfigs = alarmConfigStore.configs;
+
+  const overallStatus = useMemo(() => {
+    const keys: AlarmParamKey[] = ['airVolume', 'airPressure', 'motorCurrent', 'bearingTemp', 'vibration'];
+    let status: 'normal' | 'warning' | 'alarm' = 'normal';
+    for (const k of keys) {
+      const s = store.getParamStatus(k);
+      if (s === 'alarm') return 'alarm';
+      if (s === 'warning' && status === 'normal') status = 'warning';
+    }
+    return status;
+  }, [store.currentParams, store.paramStatus]);
 
   useEffect(() => {
     store.refreshParams();
@@ -109,25 +123,31 @@ export default function FanMonitor() {
   }, []);
 
   useEffect(() => {
-    const cur = store.currentParams.status;
+    const cur = overallStatus;
     const prev = prevStatusRef.current;
     if (cur !== prev) {
       if (cur === 'alarm') {
+        const alarmKey = (Object.entries(store.paramStatus) as [AlarmParamKey, 'normal' | 'warning' | 'alarm'][]).find(([, s]) => s === 'alarm')?.[0];
+        const cfg = alarmConfigStore.getConfig(alarmKey ?? 'bearingTemp');
+        const val = store.currentParams[alarmKey as AlarmParamKey] ?? store.currentParams.bearingTemp;
         notification.error({
           message: '🔴 红色报警',
-          description: `${store.currentParams.fanName} 轴承温度${store.currentParams.bearingTemp}°C，超过红色报警阈值85°C！`,
+          description: `${store.currentParams.fanName} ${cfg?.label ?? '参数'}${val}${cfg?.unit ?? ''}，超过红色报警阈值${cfg?.alarmThreshold ?? ''}${cfg?.unit ?? ''}！`,
           duration: 0,
         });
       } else if (cur === 'warning') {
+        const warnKey = (Object.entries(store.paramStatus) as [AlarmParamKey, 'normal' | 'warning' | 'alarm'][]).find(([, s]) => s === 'warning')?.[0];
+        const cfg = alarmConfigStore.getConfig(warnKey ?? 'bearingTemp');
+        const val = store.currentParams[warnKey as AlarmParamKey] ?? store.currentParams.bearingTemp;
         notification.warning({
           message: '🟡 黄色预警',
-          description: `${store.currentParams.fanName} 轴承温度${store.currentParams.bearingTemp}°C，超过黄色预警阈值75°C`,
+          description: `${store.currentParams.fanName} ${cfg?.label ?? '参数'}${val}${cfg?.unit ?? ''}，超过黄色预警阈值${cfg?.warningThreshold ?? ''}${cfg?.unit ?? ''}`,
           duration: 8,
         });
       }
       prevStatusRef.current = cur;
     }
-  }, [store.currentParams.status, store.currentParams.fanName, store.currentParams.bearingTemp]);
+  }, [overallStatus, store.currentParams.fanName, store.currentParams, store.paramStatus]);
 
   const filteredAlarms = store.filterAlarms(
     appliedTimeRange[0]?.toISOString() ?? null,
@@ -180,21 +200,21 @@ export default function FanMonitor() {
         title={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>主通风机实时监控 — {store.currentParams.fanName}</span>
-            <Tag color={store.currentParams.status === 'alarm' ? 'red' : store.currentParams.status === 'warning' ? 'gold' : 'green'}
+            <Tag color={overallStatus === 'alarm' ? 'red' : overallStatus === 'warning' ? 'gold' : 'green'}
               style={{ fontSize: 13, padding: '2px 12px' }}>
-              {store.currentParams.status === 'alarm' ? '🔴 红色报警' : store.currentParams.status === 'warning' ? '🟡 黄色预警' : '🟢 运行正常'}
+              {overallStatus === 'alarm' ? '🔴 红色报警' : overallStatus === 'warning' ? '🟡 黄色预警' : '🟢 运行正常'}
             </Tag>
           </div>
         }
         style={{ borderRadius: 10, overflow: 'hidden' }}
       >
         <Row gutter={[16, 16]} justify="center">
-          {PARAM_CONFIG.map(p => (
+          {paramConfigs.map(p => (
             <Col span={4} key={p.key}>
               <ParamCard
                 param={p}
                 value={store.currentParams[p.key as keyof FanParameters] as number}
-                status={store.currentParams.status}
+                status={store.getParamStatus(p.key)}
               />
             </Col>
           ))}
@@ -202,7 +222,7 @@ export default function FanMonitor() {
       </Card>
 
       <Card title="参数趋势图" style={{ marginTop: 16, borderRadius: 10, overflow: 'hidden' }}>
-        <ReactECharts option={trendOption(store.paramHistory)} style={{ height: 350 }} />
+        <ReactECharts option={trendOption(store.paramHistory, paramConfigs)} style={{ height: 350 }} />
       </Card>
 
       <Card
@@ -264,7 +284,9 @@ export default function FanMonitor() {
             <Descriptions.Item label="阈值">{store.currentAlarm.threshold}</Descriptions.Item>
             <Descriptions.Item label="超限量">
               <span style={{ color: '#ff4d4f' }}>
-                +{(store.currentAlarm.value - store.currentAlarm.threshold).toFixed(2)}
+                {store.currentAlarm.level === 'alarm' || store.currentAlarm.level === 'warning'
+                  ? (alarmConfigStore.getConfig(store.currentAlarm.parameter as AlarmParamKey)?.direction === 'below' ? '-' : '+')
+                  : ''}{Math.abs(store.currentAlarm.value - store.currentAlarm.threshold).toFixed(2)}
               </span>
             </Descriptions.Item>
             <Descriptions.Item label="告警信息">{store.currentAlarm.message}</Descriptions.Item>

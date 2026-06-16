@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import type { FanParameters, AlarmRecord } from '@/types';
+import type { FanParameters, AlarmRecord, AlarmParamKey } from '@/types';
 import { generateFanParams, generateFanHistory } from '@/mock/fanData';
 import { generateAlarmRecords } from '@/mock/alarmData';
+import { useAlarmConfigStore } from './useAlarmConfigStore';
 
 interface FanStore {
   currentParams: FanParameters;
@@ -10,6 +11,8 @@ interface FanStore {
   alarmModalVisible: boolean;
   currentAlarm: AlarmRecord | null;
   shutdownConfirmVisible: boolean;
+  paramStatus: Record<AlarmParamKey, 'normal' | 'warning' | 'alarm'>;
+  overallStatus: 'normal' | 'warning' | 'alarm';
 
   refreshParams: () => void;
   addAlarm: (record: AlarmRecord) => void;
@@ -18,6 +21,7 @@ interface FanStore {
   handleAlarm: (id: string, handler: string) => void;
   executeShutdown: () => void;
   filterAlarms: (startTime: string | null, endTime: string | null, level: string | null) => AlarmRecord[];
+  getParamStatus: (key: AlarmParamKey) => 'normal' | 'warning' | 'alarm';
 }
 
 export const useFanStore = create<FanStore>((set, get) => ({
@@ -27,57 +31,68 @@ export const useFanStore = create<FanStore>((set, get) => ({
   alarmModalVisible: false,
   currentAlarm: null,
   shutdownConfirmVisible: false,
+  paramStatus: {
+    airVolume: 'normal', airPressure: 'normal', motorCurrent: 'normal', bearingTemp: 'normal', vibration: 'normal',
+  },
+  overallStatus: 'normal',
 
   refreshParams: () => {
     const newParams = generateFanParams();
-    const prev = get().currentParams;
+    const { configs } = useAlarmConfigStore.getState();
 
-    // Check for alarm conditions
-    if (newParams.bearingTemp >= 85) {
-      const alarm: AlarmRecord = {
-        id: `alarm-${Date.now()}`,
-        fanId: newParams.fanId,
-        fanName: newParams.fanName,
-        parameter: '轴承温度',
-        value: newParams.bearingTemp,
-        threshold: 85,
-        level: 'alarm',
-        message: `${newParams.fanName}轴承温度${newParams.bearingTemp}°C，超过红色报警阈值85°C`,
-        timestamp: new Date().toISOString(),
-        handled: false,
-        shutdown: false,
-      };
-      set(state => ({
-        currentParams: newParams,
-        paramHistory: [...state.paramHistory.slice(-59), newParams],
-        alarmRecords: [alarm, ...state.alarmRecords],
-        alarmModalVisible: true,
-        currentAlarm: alarm,
-      }));
-    } else if (newParams.bearingTemp >= 75) {
-      const alarm: AlarmRecord = {
-        id: `alarm-${Date.now()}`,
-        fanId: newParams.fanId,
-        fanName: newParams.fanName,
-        parameter: '轴承温度',
-        value: newParams.bearingTemp,
-        threshold: 75,
-        level: 'warning',
-        message: `${newParams.fanName}轴承温度${newParams.bearingTemp}°C，超过黄色预警阈值75°C`,
-        timestamp: new Date().toISOString(),
-        handled: false,
-      };
-      set(state => ({
-        currentParams: newParams,
-        paramHistory: [...state.paramHistory.slice(-59), newParams],
-        alarmRecords: [alarm, ...state.alarmRecords],
-      }));
-    } else {
-      set(state => ({
-        currentParams: newParams,
-        paramHistory: [...state.paramHistory.slice(-59), newParams],
-      }));
+    const keys: AlarmParamKey[] = ['airVolume', 'airPressure', 'motorCurrent', 'bearingTemp', 'vibration'];
+    const newParamStatus = { ...get().paramStatus } as Record<AlarmParamKey, 'normal' | 'warning' | 'alarm'>;
+    let overallStatus: 'normal' | 'warning' | 'alarm' = 'normal';
+    const newAlarms: AlarmRecord[] = [];
+    let hasAlarmModal = false;
+    let firstAlarm: AlarmRecord | null = null;
+
+    for (const key of keys) {
+      const cfg = configs.find(c => c.key === key);
+      if (!cfg) continue;
+
+      const value = newParams[key] as number;
+      const result = useAlarmConfigStore.getState().isValueAlarm(key, value);
+      newParamStatus[key] = result.level;
+
+      if (result.level !== 'normal' && result.threshold !== null) {
+        const alarm: AlarmRecord = {
+          id: `alarm-${Date.now()}-${key}-${Math.random().toString(36).slice(2, 7)}`,
+          fanId: newParams.fanId,
+          fanName: newParams.fanName,
+          parameter: key,
+          value,
+          threshold: result.threshold,
+          level: result.level,
+          message: `${newParams.fanName}${cfg.label}${value}${cfg.unit}，${result.level === 'alarm' ? '超过红色报警' : '超过黄色预警'}阈值${result.threshold}${cfg.unit}`,
+          timestamp: new Date().toISOString(),
+          handled: false,
+        };
+        newAlarms.push(alarm);
+
+        if (result.level === 'alarm') {
+          overallStatus = 'alarm';
+          if (!hasAlarmModal) {
+            hasAlarmModal = true;
+            firstAlarm = { ...alarm, shutdown: false };
+          }
+        } else if (result.level === 'warning' && overallStatus === 'normal') {
+          overallStatus = 'warning';
+        }
+      }
     }
+
+    newParams.status = overallStatus;
+
+    set(state => ({
+      currentParams: newParams,
+      paramHistory: [...state.paramHistory.slice(-59), newParams],
+      alarmRecords: [...newAlarms, ...state.alarmRecords],
+      paramStatus: newParamStatus,
+      overallStatus,
+      alarmModalVisible: hasAlarmModal ? true : state.alarmModalVisible,
+      currentAlarm: firstAlarm ?? state.currentAlarm,
+    }));
   },
 
   addAlarm: (record) => set(state => ({
@@ -121,5 +136,9 @@ export const useFanStore = create<FanStore>((set, get) => ({
       if (level && r.level !== level) return false;
       return true;
     });
+  },
+
+  getParamStatus: (key) => {
+    return get().paramStatus[key];
   },
 }));

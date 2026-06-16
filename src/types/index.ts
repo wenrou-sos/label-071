@@ -145,3 +145,26 @@ export interface StructureWithInspection extends VentilationStructure {
   daysSinceLastInspect: number;
 }
 
+export type AlarmParamKey = 'airVolume' | 'airPressure' | 'motorCurrent' | 'bearingTemp' | 'vibration';
+
+export interface AlarmParamConfig {
+  key: AlarmParamKey;
+  label: string;
+  unit: string;
+  max: number;
+  warningEnabled: boolean;
+  alarmEnabled: boolean;
+  warningThreshold: number;
+  alarmThreshold: number;
+  icon: string;
+  direction: 'below' | 'above';
+}
+
+export const DEFAULT_ALARM_CONFIG: AlarmParamConfig[] = [
+  { key: 'airVolume', label: '风量', unit: 'm³/s', max: 120, warningEnabled: true, alarmEnabled: true, warningThreshold: 78, alarmThreshold: 72, icon: '💨', direction: 'below' },
+  { key: 'airPressure', label: '风压', unit: 'Pa', max: 5000, warningEnabled: true, alarmEnabled: true, warningThreshold: 2600, alarmThreshold: 2400, icon: '📊', direction: 'below' },
+  { key: 'motorCurrent', label: '电机电流', unit: 'A', max: 300, warningEnabled: true, alarmEnabled: true, warningThreshold: 200, alarmThreshold: 220, icon: '⚡', direction: 'above' },
+  { key: 'bearingTemp', label: '轴承温度', unit: '°C', max: 120, warningEnabled: true, alarmEnabled: true, warningThreshold: 75, alarmThreshold: 85, icon: '🌡', direction: 'above' },
+  { key: 'vibration', label: '振动', unit: 'mm/s', max: 8, warningEnabled: true, alarmEnabled: true, warningThreshold: 3.5, alarmThreshold: 4.5, icon: '📳', direction: 'above' },
+];
+
