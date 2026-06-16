@@ -99,6 +99,8 @@ export default function FanMonitor() {
   const prevStatusRef = useRef(store.currentParams.status);
   const [timeRange, setTimeRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [levelFilter, setLevelFilter] = useState<string | null>(null);
+  const [appliedTimeRange, setAppliedTimeRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
+  const [appliedLevelFilter, setAppliedLevelFilter] = useState<string | null>(null);
 
   useEffect(() => {
     store.refreshParams();
@@ -128,10 +130,22 @@ export default function FanMonitor() {
   }, [store.currentParams.status, store.currentParams.fanName, store.currentParams.bearingTemp]);
 
   const filteredAlarms = store.filterAlarms(
-    timeRange[0]?.toISOString() ?? null,
-    timeRange[1]?.toISOString() ?? null,
-    levelFilter,
+    appliedTimeRange[0]?.toISOString() ?? null,
+    appliedTimeRange[1]?.toISOString() ?? null,
+    appliedLevelFilter,
   );
+
+  const handleQuery = () => {
+    setAppliedTimeRange([timeRange[0], timeRange[1]]);
+    setAppliedLevelFilter(levelFilter);
+  };
+
+  const handleReset = () => {
+    setTimeRange([null, null]);
+    setLevelFilter(null);
+    setAppliedTimeRange([null, null]);
+    setAppliedLevelFilter(null);
+  };
 
   const columns = [
     {
@@ -208,7 +222,8 @@ export default function FanMonitor() {
               <Select.Option value="alarm">🔴 红色报警</Select.Option>
             </Select>
           </Col>
-          <Col><Button type="primary">查询</Button></Col>
+          <Col><Button type="primary" onClick={handleQuery}>查询</Button></Col>
+          <Col><Button onClick={handleReset}>重置</Button></Col>
         </Row>
         <Table
           rowKey="id"
