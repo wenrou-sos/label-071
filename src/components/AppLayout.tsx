@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout, Menu, Badge } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   HomeOutlined,
   DeploymentUnitOutlined,
@@ -10,54 +11,75 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   BellOutlined,
+  SafetyOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useFanStore } from '@/store/useFanStore';
+import { useInspectionStore } from '@/store/useInspectionStore';
 
 const { Sider, Header, Content } = Layout;
-
-const menuItems = [
-  {
-    key: '/home',
-    icon: <HomeOutlined />,
-    label: '系统首页',
-  },
-  {
-    key: '/ventilation-map',
-    icon: <DeploymentUnitOutlined />,
-    label: '通风系统图',
-  },
-  {
-    key: '/fan-monitor',
-    icon: <DashboardOutlined />,
-    label: '主通风机监控',
-  },
-  {
-    key: '/monthly-report',
-    icon: <FileTextOutlined />,
-    label: '通风月报',
-  },
-  {
-    key: '/comparison',
-    icon: <BarChartOutlined />,
-    label: '数据对比',
-  },
-  {
-    key: '/operation-records',
-    icon: <SwapOutlined />,
-    label: '操作记录',
-  },
-];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const fanStore = useFanStore();
+  const inspectionStore = useInspectionStore();
   const [collapsed, setCollapsed] = useState(false);
   const [currentTime, setCurrentTime] = useState(dayjs().format('YYYY-MM-DD HH:mm:ss'));
 
   const unhandledCount = fanStore.alarmRecords.filter(a => !a.handled).length;
+  const overdueCount = inspectionStore.getStructures().filter(s => s.overdue).length;
+
+  const menuItems: MenuProps['items'] = [
+    {
+      key: '/home',
+      icon: <HomeOutlined />,
+      label: '系统首页',
+    },
+    {
+      key: '/ventilation-map',
+      icon: <DeploymentUnitOutlined />,
+      label: '通风系统图',
+    },
+    {
+      key: '/fan-monitor',
+      icon: <DashboardOutlined />,
+      label: '主通风机监控',
+    },
+    {
+      key: '/monthly-report',
+      icon: <FileTextOutlined />,
+      label: '通风月报',
+    },
+    {
+      key: '/comparison',
+      icon: <BarChartOutlined />,
+      label: '数据对比',
+    },
+    {
+      key: '/inspection',
+      icon: <SafetyOutlined />,
+      label: (
+        <span>
+          设施巡检
+          {overdueCount > 0 && (
+            <Badge
+              count={overdueCount}
+              color="#ff4d4f"
+              size="small"
+              style={{ marginLeft: 8 }}
+            />
+          )}
+        </span>
+      ),
+    },
+    {
+      key: '/operation-records',
+      icon: <SwapOutlined />,
+      label: '操作记录',
+    },
+  ];
 
   useEffect(() => {
     const timer = setInterval(() => {

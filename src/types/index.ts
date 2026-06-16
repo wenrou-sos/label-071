@@ -121,3 +121,27 @@ export interface ComparisonAirData {
 
 export type PresetPeriod = 'this_month_vs_last' | 'this_week_vs_last' | 'today_vs_yesterday' | 'custom';
 
+export interface InspectionItem {
+  structureId: string;
+  structureName: string;
+  structureType: StructureType;
+  result: 'normal' | 'abnormal';
+  remark?: string;
+}
+
+export interface InspectionTask {
+  id: string;
+  taskNo: string;
+  inspector: string;
+  inspectTime: string;
+  items: InspectionItem[];
+  remark?: string;
+}
+
+export interface StructureWithInspection extends VentilationStructure {
+  lastInspectTime: string | null;
+  lastInspectResult: 'normal' | 'abnormal' | null;
+  overdue: boolean;
+  daysSinceLastInspect: number;
+}
+

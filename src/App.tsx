@@ -8,6 +8,7 @@ import FanMonitor from '@/pages/FanMonitor';
 import MonthlyReport from '@/pages/MonthlyReport';
 import OperationRecords from '@/pages/OperationRecords';
 import Comparison from '@/pages/Comparison';
+import Inspection from '@/pages/Inspection';
 
 const theme = {
   token: {
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/monthly-report" element={<MonthlyReport />} />
             <Route path="/operation-records" element={<OperationRecords />} />
             <Route path="/comparison" element={<Comparison />} />
+            <Route path="/inspection" element={<Inspection />} />
           </Routes>
         </AppLayout>
       </Router>
