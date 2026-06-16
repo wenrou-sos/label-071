@@ -42,8 +42,11 @@ export function generateInspectionTasks(): InspectionTask[] {
   return tasks.sort((a, b) => dayjs(b.inspectTime).valueOf() - dayjs(a.inspectTime).valueOf());
 }
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
 export function getStructuresWithInspection(tasks: InspectionTask[]): StructureWithInspection[] {
   const now = dayjs();
+  const nowTs = now.valueOf();
 
   return ventilationStructures.map(s => {
     const lastTask = tasks
@@ -52,15 +55,21 @@ export function getStructuresWithInspection(tasks: InspectionTask[]): StructureW
 
     const lastItem = lastTask?.items.find(item => item.structureId === s.id);
     const lastInspectTime = lastTask ? lastTask.inspectTime : null;
-    const daysSinceLastInspect = lastInspectTime
-      ? now.diff(dayjs(lastInspectTime), 'day')
-      : 999;
+
+    let daysSinceLastInspect = 999;
+    let overdue = true;
+
+    if (lastInspectTime) {
+      const diffMs = nowTs - dayjs(lastInspectTime).valueOf();
+      daysSinceLastInspect = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+      overdue = diffMs > THIRTY_DAYS_MS;
+    }
 
     return {
       ...s,
       lastInspectTime,
       lastInspectResult: lastItem?.result ?? null,
-      overdue: daysSinceLastInspect > 30,
+      overdue,
       daysSinceLastInspect,
     };
   });

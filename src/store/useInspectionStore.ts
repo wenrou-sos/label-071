@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { InspectionTask, StructureWithInspection } from '../types';
 import { generateInspectionTasks, getStructuresWithInspection } from '../mock/inspectionData';
+import dayjs from 'dayjs';
 
 interface InspectionStore {
   tasks: InspectionTask[];
@@ -24,7 +25,9 @@ export const useInspectionStore = create<InspectionStore>((set, get) => ({
       taskNo: newTaskNo,
     };
 
-    const updatedTasks = [newTask, ...tasks];
+    const updatedTasks = [...tasks, newTask].sort(
+      (a, b) => dayjs(b.inspectTime).valueOf() - dayjs(a.inspectTime).valueOf()
+    );
     set({
       tasks: updatedTasks,
       structures: getStructuresWithInspection(updatedTasks),
